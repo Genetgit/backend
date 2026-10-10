@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Attack Dashboard</title>
+    <style>
+        :root {
+            --bg-main: #0d1117; --bg-card: #161b22; --border-color: #30363d;
+            --text-primary: #c9d1d9; --text-secondary: #8b949e; --accent-blue: #58a6ff;
+            --severity-high: #f78166; --severity-critical: #f85149;
+        }
+        body { font-family: -apple-system, system-ui, sans-serif; background-color: var(--bg-main); color: var(--text-primary); padding: 20px; }
+        header { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; }
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .panel { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+        th, td { padding: 10px; border-bottom: 1px solid var(--border-color); }
+        .alert-item { padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; background-color: #0d1117; margin-bottom: 12px; cursor: pointer; }
+        .alert-item:hover { border-color: var(--accent-blue); }
+        .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        .badge-high { background: rgba(247,129,102,0.15); color: var(--severity-high); }
+        .badge-critical { background: rgba(248,81,73,0.15); color: var(--severity-critical); }
+        .error-message { color: var(--severity-critical); background: rgba(248,81,73,0.1); padding: 10px; border-radius: 4px; display: none; margin-bottom: 15px; }
+        .mono { font-family: monospace; }
+    </style>
+</head>
+<body>
+    <header>
+        <div>
+            <h1>Adaptive Cyber Attack Simulation</h1>
+            <div style="color: var(--text-secondary); font-size: 13px;">Live Monitoring Panel</div>
+        </div>
+        <div id="status" style="color: #3fb950;">● Connected</div>
+    </header>
+    <div class="error-message" id="global-error"></div>
+    <div class="container">
+        <div class="panel">
+            <h2>Live Raw Telemetry Events (<span id="evt-cnt">0</span>)</h2>
+            <table>
+                <thead><tr><th>Timestamp</th><th>Host</th><th>Type</th><th>Source IP</th></tr></thead>
+                <tbody id="evt-body"><tr><td colspan="4" style="text-align:center;">Waiting for logs...</td></tr></tbody>
+            </table>
+        </div>
+        <div class="panel">
+            <h2>Correlated Real-Time Alerts Matrix</h2>
+            <div id="alerts-wrapper">
+                <div style="text-align:center; padding:20px; color:var(--text-secondary);">No active alerts inside pool database.</div>
+            </div>
+        </div>
+    </div>
+    <script src="config.js"></script>
+    <script>
+        async function updateDashboard() {
+            try {
+                const alerts = await labFetch("/alerts");
+                const wrapper = document.getElementById("alerts-wrapper");
+                if (alerts.length === 0) {
+                    wrapper.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-secondary);">No correlated alarms yet. Run load_samples.py to generate.</div>`;
+                    return;
+                }
+                let totalEvents = 0;
+                wrapper.innerHTML = alerts.map(a => {
+                    totalEvents += a.event_ids.length;
+                    return `
+                    <div class="alert-item" onclick="window.location.href='alert-details.html?id=${a.alert_id}'">
+                        <div style="font-weight:600;">${a.title}</div>
+                        <div style="font-size:12px; color:var(--text-secondary);">IP: ${a.src_ip} | Technique: ${a.mitre_technique}</div>
+                        <div style="margin-top:5px;"><span class="badge badge-${a.severity}">${a.severity}</span> <span style="font-size:12px;">Risk: ${a.risk_score}</span></div>
+                    </div>`;
+                }).join('');
+                document.getElementById("evt-cnt").innerText = totalEvents;
+                document.getElementById("global-error").style.display = "none";
+            } catch (err) {
+                document.getElementById("global-error").innerText = "Sync Error: " + err.message;
+                document.getElementById("global-error").style.display = "block";
+            }
+        }
+        setInterval(updateDashboard, CONFIG.POLL_INTERVAL_MS);
+        window.onload = updateDashboard;
+    </script>
+</body>
+</html>

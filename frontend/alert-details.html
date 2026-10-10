@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alert Investigation</title>
+    <style>
+        :root { --bg-main: #0d1117; --bg-card: #161b22; --border-color: #30363d; --text-primary: #c9d1d9; --accent-blue: #58a6ff; --btn-green: #238636; }
+        body { font-family: -apple-system, system-ui, sans-serif; background-color: var(--bg-main); color: var(--text-primary); padding: 20px; }
+        .card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 20px; margin-bottom: 20px; }
+        button { background-color: var(--accent-blue); color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; margin-right: 10px; }
+        button:disabled { background-color: #21262d; color: #8b949e; cursor: not-allowed; }
+        .btn-def { background-color: var(--btn-green); }
+        .badge-status { padding: 4px 10px; border-radius: 4px; font-weight: 600; }
+        .status-verified { background: rgba(56,139,253,0.15); color: #58a6ff; }
+        .mono { font-family: monospace; background: #0d1117; padding: 10px; border-radius: 4px; display: block; white-wrap: pre-wrap; }
+    </style>
+</head>
+<body>
+    <a href="index.html" style="color: var(--accent-blue); text-decoration: none;">← Back to Main Matrix</a>
+    <h1>Forensic Threat Investigation Shell</h1>
+    <div class="card">
+        <h2>AI Brain Engine Analysis</h2>
+        <button id="btn-ana" onclick="runAi()">Trigger AI Analysis</button>
+        <div id="ai-res" style="margin-top:15px;"></div>
+    </div>
+    <div class="card">
+        <h2>Adaptive Defense Deployment</h2>
+        <button id="btn-def" class="btn-def" disabled onclick="deployDef()">Deploy Policy Firewall Rule</button>
+        <div id="def-res" style="margin-top:15px;"></div>
+    </div>
+    <div class="card">
+        <h2>Closed-Loop Automated Verification</h2>
+        <button id="btn-ver" class="btn-def" disabled onclick="runVer()">Run Retest Pipeline Sequence</button>
+        <div id="ver-res" style="margin-top:15px;"></div>
+    </div>
+    <script src="config.js"></script>
+    <script>
+        const alertId = new URLSearchParams(window.location.search).get('id');
+        async function loadDetails() {
+            const data = await labFetch(`/alerts/${alertId}`);
+            if(data.ai_analysis) renderAi(data.ai_analysis);
+            if(data.status === "open") document.getElementById("btn-def").disabled = false;
+            if(data.status === "defended" || data.status === "verified") document.getElementById("btn-ver").disabled = false;
+        }
+        async function runAi() {
+            const data = await labFetch(`/alerts/${alertId}/analyze`, { method: "POST" });
+            renderAi(data.ai_analysis);
+        }
+        function renderAi(ai) {
+            document.getElementById("ai-res").innerHTML = `<span class="mono"><strong>Summary:</strong> ${ai.summary}<br><strong>Impact:</strong> ${ai.impact}<br><strong>Defense:</strong> ${ai.recommended_defense_id}</span>`;
+            document.getElementById("btn-def").disabled = false;
+        }
+        async function deployDef() {
+            if(!confirm("Deploy iptables rule filter on target instance?")) return;
+            const res = await labFetch("/defenses/apply", { method: "POST", body: JSON.stringify({ alert_id: alertId, defense_id: "block_ip_iptables" })});
+            document.getElementById("def-res").innerHTML = `<span style="color:#3fb950;">✔ Policy deployed successfully. ID: ${res.run_id}</span>`;
+            document.getElementById("btn-ver").disabled = false;
+        }
+        async function runVer() {
+            const res = await labFetch("/verifications", { method: "POST", body: JSON.stringify({ alert_id: alertId })});
+            document.getElementById("ver-res").innerHTML = `Verification Triggered...`;
+            const check = setInterval(async () => {
+                const v = await labFetch(`/verifications/${res.verification_id}`);
+                if(v.result !== "running") {
+                    clearInterval(check);
+                    document.getElementById("ver-res").innerHTML = `<div style="margin-top:10px;"><span class="badge-status status-verified">${v.result.toUpperCase()}</span><br><br><span class="mono">${v.evidence}</span></div>`;
+                }
+            }, 2000);
+        }
+        window.onload = loadDetails;
+    </script>
+</body>
+</html>
